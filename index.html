@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Шахматы</title>
+<link rel="icon" href="images/favicon.png" sizes="any" type="image/png">
+<style>
+  
+  #chooseSide {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #ffffff;
+    border-radius: 15px;
+    border: 2px solid #000;
+    padding: 20px 30px;
+    z-index: 1000;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+    text-align: center;
+    display: block;
+  }
+  
+  #chooseSide button {
+   border: none;
+   border-radius: 8px;
+   background: #2c3e50;
+   color: white;
+   transition: 0.3s;
+  }
+
+  #chooseSide button:hover {
+   background: #34495e;
+   transform: scale(1.05);
+  }
+
+
+  #toggleMode {
+   background: #27ae60;
+   border: none;
+   border-radius: 8px;
+   color: white;
+   transition: 0.3s;
+  }
+  #toggleMode:hover {
+   background: #2ecc71;
+   transform: scale(1.05);
+  }
+  
+  
+  :root {
+  --board-shadow: rgba(0, 0, 0, 0.6);
+}
+
+.chess-board {
+  border-spacing: 0;
+  border-collapse: collapse;
+  margin: 0 auto;
+  filter: drop-shadow(0 25px 40px var(--board-shadow));
+  transition: filter 0.4s ease;
+}
+
+
+  body {
+    user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+    margin: 0;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: rgb(255,255,255);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+  }
+
+  .chess-board,
+  .chess-board * {
+    user-select: auto;
+  }
+  .in-check {
+  box-shadow: inset 0 0 0 4px red;
+  }
+  .box {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+  }
+  .chess-board { border-spacing: 0; border-collapse: collapse; margin: 0 auto; }
+  .chess-board th { padding: .5em; }
+  .chess-board td { border: 1px solid; width: 80px; height: 80px; text-align: center; vertical-align: middle; cursor: pointer; }
+  .white { background: #f0d9b5; }
+  .black { background: #b58863; }
+  .highlight { outline: 3px solid yellow; }
+  .chess-board td {
+  transition: background 0.2s, transform 0.1s;
+}
+.chess-board td:hover {
+  filter: brightness(1.1);
+  transform: scale(1);
+}
+</style>
+</head>
+<body>
+
+
+
+<!-- КНОПКА НАСТРОЕК -->
+<button id="settingsBtn" style="
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3000;
+  padding: 10px 15px;
+  font-size: 14px;
+  cursor: pointer;
+  background: #8e44ad;
+  border: none;
+  border-radius: 8px;
+  color: white;
+">
+  Настройки
+</button>
+
+<!-- ПАНЕЛЬ НАСТРОЕК -->
+<div id="settingsPanel" style="
+  position: fixed;
+  top: 0;
+  right: -250px; /* изначально скрыта за экраном */
+  width: 250px;
+  height: 100%;
+  background: #ecf0f1;
+  box-shadow: -5px 0 30px rgba(0,0,0,0.3);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  transition: right 0.3s ease;
+  z-index: 2500;
+">
+
+<!-- КНОПКА ОТКРЫТИЯ МЕНЮ ВЫБОРА ЦВЕТА ФОНА -->
+<button id="rgbToggle" style="
+  z-index: 3000;
+  padding: 10px 15px;
+  font-size: 14px;
+  cursor: pointer;
+  background: #3498db;
+  border: none;
+  border-radius: 8px;
+  color: white;
+">
+  Цвет фона 
+</button>
+
+<!-- КНОПКА ВЫБОРА УПРАВЛЕНИЯ -->
+<button id="toggleMode" style="
+  z-index: 3000;
+  padding: 10px 15px;
+  font-size: 14px;
+  cursor: pointer;
+">Режим: Drag & Drop</button>
+
+</div>
+
+
+<!-- МЕНЮ ВЫБОРА ЦВЕТА ФОНА -->
+<div id="rgbMenu" style="
+  position: absolute;  /* вместо fixed */
+  top: 20px;           /* от верхнего края панели */
+  right: 300px;          /* от левого края панели */
+  background: white;
+  padding: 15px;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  display: none;
+  z-index: 3000;
+">
+  <div>
+    R: <input type="range" id="red" min="0" max="255" value="255">
+  </div>
+  <div>
+    G: <input type="range" id="green" min="0" max="255" value="255">
+  </div>
+  <div>
+    B: <input type="range" id="blue" min="0" max="255" value="255">
+  </div>
+</div>
+
+<script>
+//rgb!!!
+
+document.addEventListener("DOMContentLoaded", function() {
+
+  const toggle = document.getElementById("rgbToggle");
+  const menu = document.getElementById("rgbMenu");
+
+  const red = document.getElementById("red");
+  const green = document.getElementById("green");
+  const blue = document.getElementById("blue");
+
+  toggle.addEventListener("click", function() {
+    menu.style.display = menu.style.display === "block" ? "none" : "block";
+  });
+
+  function updateBg() {
+    document.body.style.backgroundColor =
+      "rgb(" + red.value + "," + green.value + "," + blue.value + ")";
+  }
+
+  red.addEventListener("input", updateBg);
+  green.addEventListener("input", updateBg);
+  blue.addEventListener("input", updateBg);
+
+});
+
+// Выезжающая панель
+  settingsBtn.addEventListener("click", () => {
+    if (settingsPanel.style.right === "0px") {
+      settingsPanel.style.right = "-250px";
+      rgbMenu.style.display = "none";
+    } else {
+      settingsPanel.style.right = "0px";
+    }
+  });
+</script>
+
+
+
+
+<div id="promotion" style="
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  border: 2px solid black;
+  padding: 15px;
+  display: none;
+  z-index: 2000;
+">
+  <p><b>Выберите фигуру</b></p>
+  <div id="promotionChoices"></div>
+</div>
+
+
+<div class="box">
+<table class="chess-board">
+  <tbody>
+    <tr><th></th><th>a</th><th>b</th><th>c</th><th>d</th><th>e</th><th>f</th><th>g</th><th>h</th></tr>
+
+    <!-- Черные фигуры -->
+    <tr>
+      <th>8</th>
+      <td class="white" id="a8"></td>
+      <td class="black" id="b8"></td>
+      <td class="white" id="c8"></td>
+      <td class="black" id="d8"></td>
+      <td class="white" id="e8"></td>
+      <td class="black" id="f8"></td>
+      <td class="white" id="g8"></td>
+      <td class="black" id="h8"></td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td class="black" id="a7"></td>
+      <td class="white" id="b7"></td>
+      <td class="black" id="c7"></td>
+      <td class="white" id="d7"></td>
+      <td class="black" id="e7"></td>
+      <td class="white" id="f7"></td>
+      <td class="black" id="g7"></td>
+      <td class="white" id="h7"></td>
+    </tr>
+
+    <!-- Пустые ряды -->
+    <tr><th>6</th><td class="white" id="a6"></td><td class="black" id="b6"></td><td class="white" id="c6"></td><td class="black" id="d6"></td><td class="white" id="e6"></td><td class="black" id="f6"></td><td class="white" id="g6"></td><td class="black" id="h6"></td></tr>
+    <tr><th>5</th><td class="black" id="a5"></td><td class="white" id="b5"></td><td class="black" id="c5"></td><td class="white" id="d5"></td><td class="black" id="e5"></td><td class="white" id="f5"></td><td class="black" id="g5"></td><td class="white" id="h5"></td></tr>
+    <tr><th>4</th><td class="white" id="a4"></td><td class="black" id="b4"></td><td class="white" id="c4"></td><td class="black" id="d4"></td><td class="white" id="e4"></td><td class="black" id="f4"></td><td class="white" id="g4"></td><td class="black" id="h4"></td></tr>
+    <tr><th>3</th><td class="black" id="a3"></td><td class="white" id="b3"></td><td class="black" id="c3"></td><td class="white" id="d3"></td><td class="black" id="e3"></td><td class="white" id="f3"></td><td class="black" id="g3"></td><td class="white" id="h3"></td></tr>
+
+    <!-- Белые пешки -->
+    <tr>
+      <th>2</th>
+      <td class="white" id="a2"></td>
+      <td class="black" id="b2"></td>
+      <td class="white" id="c2"></td>
+      <td class="black" id="d2"></td>
+      <td class="white" id="e2"></td>
+      <td class="black" id="f2"></td>
+      <td class="white" id="g2"></td>
+      <td class="black" id="h2"></td>
+    </tr>
+
+    <!-- Белные фигуры -->
+    <tr>
+      <th>1</th>
+      <td class="black" id="a1"></td>
+      <td class="white" id="b1"></td>
+      <td class="black" id="c1"></td>
+      <td class="white" id="d1"></td>
+      <td class="black" id="e1"></td>
+      <td class="white" id="f1"></td>
+      <td class="black" id="g1"></td>
+      <td class="white" id="h1"></td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<script>
+let playerColor = "w";
+let currentTurn = "w";
+let enPassantTarget = null;
+let promotionSquare = null;
+let promotionColor = null;
+let promotionActive = false;
+let useClickMode = false;
+let dragPiece = null;
+let dragOffsetX = 0;
+let dragOffsetY = 0;
+let selectedSquare = null;
+
+const moved = {
+  wk: false, bk: false,
+  a1: false, h1: false,
+  a8: false, h8: false
+};
+
+const toggleBtn = document.getElementById("toggleMode");
+toggleBtn.addEventListener("click", () => {
+  useClickMode = !useClickMode;
+  toggleBtn.textContent = useClickMode ? "Режим: Клик" : "Режим: Drag & Drop";
+  clearSelection();
+});
+
+const pieces = {
+  a8:"br", b8:"bn", c8:"bb", d8:"bq", e8:"bk", f8:"bb", g8:"bn", h8:"br",
+  a7:"bp", b7:"bp", c7:"bp", d7:"bp", e7:"bp", f7:"bp", g7:"bp", h7:"bp",
+  a2:"wp", b2:"wp", c2:"wp", d2:"wp", e2:"wp", f2:"wp", g2:"wp", h2:"wp",
+  a1:"wr", b1:"wn", c1:"wb", d1:"wq", e1:"wk", f1:"wb", g1:"wn", h1:"wr"
+};
+
+const customPieces = {
+  wp: "skins/white_pawn.png",
+  wr: "skins/white_rook.png",
+  wn: "skins/white_knight.png",
+  wb: "skins/white_bishop.png",
+  wq: "skins/white_queen.png",
+  wk: "skins/white_king.png",
+  bp: "skins/black_pawn.png",
+  br: "skins/black_rook.png",
+  bn: "skins/black_knight.png",
+  bb: "skins/black_bishop.png",
+  bq: "skins/black_queen.png",
+  bk: "skins/black_king.png"
+};
+
+render();
+
+function canMove(fromId, toId) {
+  const moving = pieces[fromId];
+  if (!moving) return false;
+  if (moving[0] !== currentTurn) return false;
+
+  if (!canMoveBasic(fromId, toId)) return false;
+
+  const backupFrom = pieces[fromId];
+  const backupTo = pieces[toId];
+
+  pieces[toId] = pieces[fromId];
+  delete pieces[fromId];
+
+  const kingSquare = findKing(moving[0]);
+  const inCheck = isSquareAttacked(kingSquare, moving[0] === "w" ? "b" : "w");
+
+  pieces[fromId] = backupFrom;
+  if (backupTo) pieces[toId] = backupTo;
+  else delete pieces[toId];
+
+  return !inCheck;
+}
+  
+function canMoveBasic(fromId, toId, forAttack = false) {
+  const moving = pieces[fromId];
+  const target = pieces[toId];
+  if (!moving) return false;
+  if (target && moving[0] === target[0]) return false;
+  
+  const fromRow = parseInt(fromId[1]);
+  const fromCol = fromId.charCodeAt(0);
+  const toRow = parseInt(toId[1]);
+  const toCol = toId.charCodeAt(0);
+  const dRow = toRow - fromRow;
+  const dCol = toCol - fromCol;
+
+  // Пешки
+  if (moving === "wp") {
+  const fromRow = parseInt(fromId[1]);
+  const fromCol = fromId.charCodeAt(0);
+  const toRow = parseInt(toId[1]);
+  const toCol = toId.charCodeAt(0);
+  const dRow = toRow - fromRow;
+  const dCol = toCol - fromCol;
+  
+  if(dCol === 0 && !target && (dRow === 1 || (fromRow === 2 && dRow === 2 && !pieces[fromId[0]+(fromRow+1)]))) return true;
+
+  if(Math.abs(dCol) === 1 && dRow === 1 && target && target[0] === "b") return true;
+
+  if(Math.abs(dCol) === 1 && dRow === 1 && toId === enPassantTarget) return true;
+}
+
+if (moving === "bp") {
+  const fromRow = parseInt(fromId[1]);
+  const fromCol = fromId.charCodeAt(0);
+  const toRow = parseInt(toId[1]);
+  const toCol = toId.charCodeAt(0);
+  const dRow = toRow - fromRow;
+  const dCol = toCol - fromCol;
+
+  if(dCol === 0 && !target && (dRow === -1 || (fromRow === 7 && dRow === -2 && !pieces[fromId[0]+(fromRow-1)]))) return true;
+
+  if(Math.abs(dCol) === 1 && dRow === -1 && target && target[0] === "w") return true;
+
+  if(Math.abs(dCol) === 1 && dRow === -1 && toId === enPassantTarget) return true;
+}
+
+  // Конь
+  if(moving[1]==="n") {
+    if((Math.abs(dRow)===2 && Math.abs(dCol)===1)||(Math.abs(dRow)===1 && Math.abs(dCol)===2)) return true;
+  }
+
+  // Ладья и Ферзь (по прямой)
+  if(moving[1]==="r" || moving[1]==="q") {
+    if(dRow===0 || dCol===0){
+      const stepRow = dRow===0?0:dRow>0?1:-1;
+      const stepCol = dCol===0?0:dCol>0?1:-1;
+      let r=fromRow+stepRow, c=fromCol+stepCol;
+      while(r!==toRow || c!==toCol){
+        if(pieces[String.fromCharCode(c)+r]) return false;
+        r+=stepRow; c+=stepCol;
+      }
+      return true;
+    }
+  }
+
+  // Слон и Ферзь (по диагонали)
+  if(moving[1]==="b" || moving[1]==="q") {
+    if(Math.abs(dRow)===Math.abs(dCol) && dRow!==0){
+      const stepRow = dRow>0?1:-1;
+      const stepCol = dCol>0?1:-1;
+      let r=fromRow+stepRow, c=fromCol+stepCol;
+      while(r!==toRow && c!==toCol){
+        if(pieces[String.fromCharCode(c)+r]) return false;
+        r+=stepRow; c+=stepCol;
+      }
+      return true;
+    }
+  }
+
+  // Король
+  if (moving[1] === "k") {
+  // Обычное движение
+  if (Math.abs(dRow) <= 1 && Math.abs(dCol) <= 1) return true;
+
+  // Рокировка для белых
+  if (!forAttack && moving === "wk" && fromId === "e1" && !moved.wk) {
+    if (toId === "g1" && !moved.h1 && !pieces.f1 && !pieces.g1) {
+      if (!isSquareAttacked("e1","b") && !isSquareAttacked("f1","b") && !isSquareAttacked("g1","b")) return true;
+    }
+    if (toId === "c1" && !moved.a1 && !pieces.d1 && !pieces.c1 && !pieces.b1) {
+      if (!isSquareAttacked("e1","b") && !isSquareAttacked("d1","b") && !isSquareAttacked("c1","b")) return true;
+    }
+  }
+
+  // Рокировка для чёрных
+  if (!forAttack && moving === "bk" && fromId === "e8" && !moved.bk) {
+    if (toId === "g8" && !moved.h8 && !pieces.f8 && !pieces.g8) {
+      if (!isSquareAttacked("e8","w") && !isSquareAttacked("f8","w") && !isSquareAttacked("g8","w")) return true;
+    }
+    if (toId === "c8" && !moved.a8 && !pieces.d8 && !pieces.c8 && !pieces.b8) {
+      if (!isSquareAttacked("e8","w") && !isSquareAttacked("d8","w") && !isSquareAttacked("c8","w")) return true;
+    }
+  }
+}
+
+  return false;
+}
+
+function isCheck(color) {
+  const king = findKing(color);
+  const enemy = color === "w" ? "b" : "w";
+  return isSquareAttacked(king, enemy);
+}
+
+function clearSelection() {
+  selectedSquare = null;
+  clearHighlights();
+}
+
+
+const tbody = document.querySelector(".chess-board tbody");
+
+function handleMove(fromId, toId) {
+  const piece = pieces[fromId];
+  if (!piece) return;
+
+  if (piece[1] === "k") {
+    if (piece === "wk" && fromId === "e1") {
+      if (toId === "g1") {
+        pieces["f1"] = pieces["h1"];
+        delete pieces["h1"];
+        moved.wk = true;
+        moved.h1 = true;
+      }
+      if (toId === "c1") {
+        pieces["d1"] = pieces["a1"];
+        delete pieces["a1"];
+        moved.wk = true;
+        moved.a1 = true;
+      }
+    }
+    if (piece === "bk" && fromId === "e8") {
+      if (toId === "g8") {
+        pieces["f8"] = pieces["h8"];
+        delete pieces["h8"];
+        moved.bk = true;
+        moved.h8 = true;
+      }
+      if (toId === "c8") {
+        pieces["d8"] = pieces["a8"];
+        delete pieces["a8"];
+        moved.bk = true;
+        moved.a8 = true;
+      }
+    }
+  }
+
+  pieces[toId] = piece;
+  delete pieces[fromId];
+  
+  if (piece === "wk") moved.wk = true;
+if (piece === "bk") moved.bk = true;
+
+if (piece === "wr" && fromId === "a1") moved.a1 = true;
+if (piece === "wr" && fromId === "h1") moved.h1 = true;
+
+if (piece === "br" && fromId === "a8") moved.a8 = true;
+if (piece === "br" && fromId === "h8") moved.h8 = true;
+
+  const fromRow = parseInt(fromId[1]);
+  const toRow = parseInt(toId[1]);
+
+  if (piece[1] === "p" && Math.abs(toRow - fromRow) === 2) {
+    enPassantTarget = fromId[0] + (piece[0] === "w" ? 3 : 6);
+  } else {
+    enPassantTarget = null;
+  }
+
+  if (
+    piece[1] === "p" &&
+    ((piece[0] === "w" && toRow === 8) ||
+     (piece[0] === "b" && toRow === 1))
+  ) {
+    render();
+    startPromotion(toId);
+    return true;
+  }
+
+  currentTurn = currentTurn === "w" ? "b" : "w";
+  render();
+  highlightCheck();
+  return false;
+}
+
+
+tbody.addEventListener("dragover", e => e.preventDefault());
+
+tbody.addEventListener("mousedown", e => {
+  if (useClickMode || promotionActive) return;
+  if (useClickMode) return;
+
+  const td = e.target.closest("td");
+  if (!td) return;
+  const id = td.id;
+  const piece = pieces[id];
+  if (!piece || piece[0] !== currentTurn) return;
+
+  selectedSquare = id;
+  
+  highlightMoves(selectedSquare);
+
+  const img = td.querySelector("img");
+  if (!img) return;
+
+  dragPiece = img.cloneNode(true);
+  dragPiece.style.position = "absolute";
+  dragPiece.style.pointerEvents = "none";
+  dragPiece.style.width = "80px";
+  dragPiece.style.height = "80px";
+  dragPiece.style.zIndex = 1000;
+  document.body.appendChild(dragPiece);
+
+  const rect = img.getBoundingClientRect();
+  dragOffsetX = e.clientX - rect.left;
+  dragOffsetY = e.clientY - rect.top;
+
+  moveDragPiece(e.clientX, e.clientY);
+
+  e.preventDefault();
+});
+
+document.addEventListener("mousemove", e => {
+  if (!dragPiece) return;
+  moveDragPiece(e.clientX, e.clientY);
+});
+
+function moveDragPiece(x, y) {
+  dragPiece.style.left = (x - dragOffsetX) + "px";
+  dragPiece.style.top = (y - dragOffsetY) + "px";
+}
+
+document.addEventListener("mouseup", e => {
+  if (!dragPiece || promotionActive) return;
+  if (!dragPiece) return;
+
+  const td = document.elementFromPoint(e.clientX, e.clientY)?.closest("td");
+
+  if (td && selectedSquare && canMove(selectedSquare, td.id)) {
+    // Рокировка для белого
+  if (pieces[selectedSquare] === "wk" && selectedSquare === "e1") {
+    if (td.id === "g1") {
+      pieces["f1"] = pieces["h1"];
+      delete pieces["h1"];
+      moved.wk = true;
+      moved.h1 = true;
+    }
+    if (td.id === "c1") {
+      pieces["d1"] = pieces["a1"];
+      delete pieces["a1"];
+      moved.wk = true;
+      moved.a1 = true;
+    }
+  }
+  
+  // Рокировка для черного
+  if (pieces[selectedSquare] === "bk" && selectedSquare === "e8") {
+    if (td.id === "g8") {
+      pieces["f8"] = pieces["h8"];
+      delete pieces["h8"];
+      moved.bk = true;
+      moved.h8 = true;
+    }
+    if (td.id === "c8") {
+      pieces["d8"] = pieces["a8"];
+      delete pieces["a8"];
+      moved.bk = true;
+      moved.a8 = true;
+    }
+  }
+    
+    if (pieces[selectedSquare][1] === "p" && td.id === enPassantTarget && !pieces[td.id]) {
+      const capturedRow = pieces[selectedSquare][0] === "w" ? parseInt(td.id[1]) - 1 : parseInt(td.id[1]) + 1;
+      delete pieces[td.id[0] + capturedRow];
+    }
+
+    pieces[td.id] = pieces[selectedSquare];
+    delete pieces[selectedSquare];
+
+    if (
+      pieces[td.id][1] === "p" &&
+      ((pieces[td.id][0] === "w" && td.id[1] === "8") ||
+       (pieces[td.id][0] === "b" && td.id[1] === "1"))
+    ) {
+      render();
+      startPromotion(td.id);
+      selectedSquare = null;
+      dragPiece.remove();
+      dragPiece = null;
+      return;
+    }
+    
+    const fromRow = parseInt(selectedSquare[1]);
+    const toRow = parseInt(td.id[1]);
+    if (pieces[td.id][1] === "p" && Math.abs(toRow - fromRow) === 2) {
+      enPassantTarget = selectedSquare[0] + (pieces[td.id][0] === "w" ? 3 : 6);
+    } else {
+      enPassantTarget = null;
+    }
+
+    currentTurn = currentTurn === "w" ? "b" : "w";
+  }
+
+  dragPiece.remove();
+  dragPiece = null;
+  selectedSquare = null;
+
+  render();
+  highlightCheck();
+});
+
+
+
+tbody.addEventListener("click", e => {
+  if (!useClickMode || promotionActive) return;
+  if (!useClickMode) return;
+  const td = e.target.closest("td");
+  if (!td) return;
+  const id = td.id;
+    
+  if (selectedSquare) {
+    if (canMove(selectedSquare, id)) {
+      
+      if (pieces[selectedSquare][1] === "k") {
+      // Белый король
+      if (pieces[selectedSquare] === "wk" && selectedSquare === "e1") {
+        if (id === "g1") { pieces["f1"] = pieces["h1"]; delete pieces["h1"]; moved.wk = true; moved.h1 = true; }
+        if (id === "c1") { pieces["d1"] = pieces["a1"]; delete pieces["a1"]; moved.wk = true; moved.a1 = true; }
+      }
+      // Черный король
+      if (pieces[selectedSquare] === "bk" && selectedSquare === "e8") {
+        if (id === "g8") { pieces["f8"] = pieces["h8"]; delete pieces["h8"]; moved.bk = true; moved.h8 = true; }
+        if (id === "c8") { pieces["d8"] = pieces["a8"]; delete pieces["a8"]; moved.bk = true; moved.a8 = true; }
+      }
+    }
+
+      if (
+        pieces[selectedSquare][1] === "p" &&
+        ((pieces[selectedSquare][0] === "w" && id[1] === "8") ||
+         (pieces[selectedSquare][0] === "b" && id[1] === "1"))
+      ) {
+  
+        pieces[id] = pieces[selectedSquare];
+        delete pieces[selectedSquare];
+        render();
+        highlightCheck();
+        startPromotion(id);
+        selectedSquare = null;
+        return;
+      }
+    
+      if (
+        pieces[selectedSquare][1] === "p" &&
+        id === enPassantTarget &&
+        !pieces[id]
+      ) {
+        const capturedRow =
+          pieces[selectedSquare][0] === "w"
+            ? parseInt(id[1]) - 1
+            : parseInt(id[1]) + 1;
+        delete pieces[id[0] + capturedRow];
+      }
+
+      pieces[id] = pieces[selectedSquare];
+      delete pieces[selectedSquare];
+
+      const fromRow = parseInt(selectedSquare[1]);
+      const toRow = parseInt(id[1]);
+      if (
+        pieces[id][1] === "p" &&
+        Math.abs(toRow - fromRow) === 2
+      ) {
+        enPassantTarget =
+          selectedSquare[0] + (pieces[id][0] === "w" ? 3 : 5 - 2);
+      } else {
+        enPassantTarget = null;
+      }
+
+      currentTurn = currentTurn === "w" ? "b" : "w";
+      render();
+      highlightCheck();
+    }
+    selectedSquare = null;
+    clearHighlights();
+  } else {
+    if (pieces[id] && pieces[id][0] === currentTurn) {
+      selectedSquare = id;
+      highlightMoves(id);
+    }
+  }
+});
+
+
+function chooseSide(color) {
+  playerColor = color;
+  currentTurn = "w";  
+  document.getElementById("chooseSide").style.display = "none";
+  render();
+}
+
+function isSquareAttacked(square, byColor) {
+  for (let from in pieces) {
+    if (pieces[from][0] === byColor) {
+      if (canMoveBasic(from, square, true)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function startPromotion(square) {
+  promotionSquare = square;
+  clearHighlights();
+  promotionActive = true;
+  promotionColor = pieces[square][0];
+
+  const container = document.getElementById("promotionChoices");
+  container.innerHTML = "";
+
+  ["q", "r", "b", "n"].forEach(type => {
+    const btn = document.createElement("button");
+    const img = document.createElement("img");
+    img.src = customPieces[promotionColor + type];
+    img.style.width = "50px";
+    img.style.height = "50px";
+    btn.appendChild(img);
+    btn.onclick = () => finishPromotion(type);
+    btn.style.margin = "5px";
+    container.appendChild(btn);
+  });
+
+  document.getElementById("promotion").style.display = "block";
+}
+
+function finishPromotion(type) {
+  pieces[promotionSquare] = promotionColor + type;
+
+  promotionSquare = null;
+  promotionColor = null;
+
+  document.getElementById("promotion").style.display = "none";
+
+  currentTurn = currentTurn === "w" ? "b" : "w";
+  promotionActive = false;
+  render();
+  highlightCheck();
+  promotionActive = false;
+}
+
+
+function render() {
+  document.querySelectorAll('td').forEach(td=>{
+    td.innerHTML = "";
+    const id = td.id;
+    td.classList.remove("highlight-dot", "highlight-move", "highlight-capture");
+
+    if(pieces[id]){
+      const pieceDiv = document.createElement("div");
+      const img = document.createElement("img");
+      img.src = customPieces[pieces[id]];
+      img.style.width = "80%";
+      img.style.height = "80%";
+      img.dataset.id = id;
+
+      pieceDiv.appendChild(img);
+      pieceDiv.draggable = true;
+      pieceDiv.dataset.id = id;
+      td.appendChild(pieceDiv);
+
+      pieceDiv.addEventListener('dragstart', e => {
+    e.dataTransfer.setData("text/plain", id);
+
+    const dragImg = img.cloneNode(true);
+    dragImg.style.width = "70px";
+    dragImg.style.height = "70px";
+    dragImg.style.position = "absolute";
+    dragImg.style.top = "-1000px";
+    document.body.appendChild(dragImg);
+
+    e.dataTransfer.setDragImage(dragImg, 40, 40);
+    setTimeout(() => document.body.removeChild(dragImg), 0);
+
+    highlightMoves(id);
+     });
+    }
+  });
+}
+
+function hasAnyLegalMove(color) {
+  for (let from in pieces) {
+    if (pieces[from][0] === color) {
+      for (let to in pieces) {
+        if (canMove(from, to)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function clearHighlights() {
+  document.querySelectorAll('td').forEach(td => {
+    td.classList.remove("highlight-move", "highlight-capture");
+  });
+}
+
+function highlightMoves(fromId){
+  if(promotionActive) return;
+  clearHighlights();
+  const moving = pieces[fromId];
+  document.querySelectorAll('td').forEach(td=>{
+    if(canMove(fromId, td.id)){
+      const target = pieces[td.id];
+      if(target && target[0]!==moving[0]) td.classList.add("highlight-capture");
+      else td.classList.add("highlight-move");
+    }
+  });
+}
+
+function findKing(color) {
+  for (let square in pieces) {
+    if (pieces[square] === color + "k") {
+      return square;
+    }
+  }
+  return null;
+}
+
+function movePiece(fromId, toId) {
+  const piece = pieces[fromId];
+  if (!piece) return;
+  
+  pieces[toId] = piece;
+  delete pieces[fromId];
+
+  // Рокировка белых
+  if (piece === "wk" && fromId === "e1") {
+    if (toId === "g1") { pieces["f1"] = pieces["h1"]; delete pieces["h1"]; moved.wk = true; moved.h1 = true; }
+    if (toId === "c1") { pieces["d1"] = pieces["a1"]; delete pieces["a1"]; moved.wk = true; moved.a1 = true; }
+  }
+
+  // Рокировка чёрных
+  if (piece === "bk" && fromId === "e8") {
+    if (toId === "g8") { pieces["f8"] = pieces["h8"]; delete pieces["h8"]; moved.bk = true; moved.h8 = true; }
+    if (toId === "c8") { pieces["d8"] = pieces["a8"]; delete pieces["a8"]; moved.bk = true; moved.a8 = true; }
+  }
+  
+  if(piece === "wr" && fromId === "h1") moved.h1 = true;
+  if(piece === "wr" && fromId === "a1") moved.a1 = true;
+  if(piece === "br" && fromId === "h8") moved.h8 = true;
+  if(piece === "br" && fromId === "a8") moved.a8 = true;
+};
+
+function highlightCheck() {
+  document.querySelectorAll("td").forEach(td => {
+    td.classList.remove("in-check");
+  });
+
+  ["w", "b"].forEach(color => {
+    if (isCheck(color)) {
+      const kingSquare = findKing(color);
+      if (kingSquare) {
+        document.getElementById(kingSquare).classList.add("in-check");
+      }
+    }
+  });
+}
+
+
+</script>
+<style>
+th {
+  user-select: none;
+  cursor: default;
+}
+th:focus {
+  outline: none;
+}
+td {
+    position: relative;
+  }
+
+  .highlight-move::after,
+  .highlight-capture::after {
+    content: "";
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 10;
+}
+  .highlight-move::after { background-color: rgba(0,255,0,0.7); }
+  .highlight-capture::after { background-color: rgba(255,0,0,0.8); }
+  
+  td img {
+  pointer-events: none;
+}
+</style>
+</body>
+</html>
